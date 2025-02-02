@@ -13,10 +13,13 @@ app.use(cors({
 }));
 
 // Connect to MongoDB
-mongoose.connect("mongodb://localhost:27017/users", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(
+  "mongodb+srv://abhisheksharma2:abhisheksharma2@react-cluster.lb0cf.mongodb.net/users",
+  // "mongodb://localhost:27017/users",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
 
 const userRoutes = require("./routes/userRoutes");
 app.use("/api", userRoutes);
