@@ -6,8 +6,16 @@ const router = express.Router();
 process.env.JWT_SECRET = "secret";
 
 // Common response function
-const sendResponse = (res, statusCode, success, message, data = null, formFieldErrors = {}, errors = []) => {
-  res.status(statusCode).json({ success, message, data, formFieldErrors, errors });
+const sendResponse = (res, statusCode, success, message, data = null, formFieldErrors = null, errors = null) => {
+  res.status(statusCode).json({ 
+    message, 
+    errors: {
+      fieldErrors: formFieldErrors,
+      generalErrors: errors
+    }, 
+    data, 
+    success 
+    });
 };
 
 // Middleware to check authentication
@@ -16,7 +24,7 @@ const authenticateToken = (req, res, next) => {
   if (!token) return sendResponse(res, 401, false, "Unauthorized access");
 
   try {
-    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
+    const decoded = jwt.verify(token?.replace("Bearer ", ""), process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -26,13 +34,13 @@ const authenticateToken = (req, res, next) => {
 
 // me API Route
 router.get("/me", authenticateToken, (req, res) => {
-  sendResponse(res, 200, true, "User authenticated successfully", { user: req.user });
+  sendResponse(res, 200, true, "User authenticated successfully", req?.user );
 });
 
 // Signup Route
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password } = req?.body;
     const formFieldErrors = {};
 
     if (!name) formFieldErrors.name = ["The name field is required."];
@@ -55,17 +63,17 @@ router.post("/signup", async (req, res) => {
     const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
-    sendResponse(res, 201, true, "User registered successfully", { id: user._id, name, email });
+    sendResponse(res, 201, true, "User registered successfully", user.toObject());
   } catch (error) {
     console.error(error);
-    sendResponse(res, 500, false, "Internal Server Error", null, {}, ["Error saving user to database."]);
+    sendResponse(res, 500, false, "Internal Server Error", null, {}, [error?.message]);
   }
 });
 
 // Login Route
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req?.body;
     const formFieldErrors = {};
 
     if (!email) formFieldErrors.email = ["The email field is required."];
@@ -87,9 +95,9 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: user._id,
-        name: user.name,
-        email: user.email,
+        id: user?._id,
+        name: user?.name,
+        email: user?.email,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
@@ -97,7 +105,11 @@ router.post("/login", async (req, res) => {
 
     sendResponse(res, 200, true, "User logged in successfully", {
       token,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: {
+        id: user?._id,
+        name: user?.name,
+        email: user?.email
+      },
     });
   } catch (error) {
     console.error(error);
@@ -108,7 +120,7 @@ router.post("/login", async (req, res) => {
 // Get Users with Pagination
 router.get("/users", authenticateToken, async (req, res) => {
   try {
-    let { page = 1, limit = 10 } = req.query;
+    let { page = 1, limit = 10 } = req?.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -144,14 +156,14 @@ router.get("/preload", (req, res) => {
 
 router.delete("/user/:id", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req?.params;
     const user = await User.findByIdAndDelete(id);
     if (!user) {
       return sendResponse(res, 404, false, "User not found");
     }
     res.status(204).send(); // No Content
   } catch (error) {
-    sendResponse(res, 500, false, "Internal Server Error");
+    sendResponse(res, 500, false, "Internal Server Error", null, {}, [error?.message]);
   }
 });
 
@@ -163,8 +175,12 @@ router.get("/new-route", (req, res) => {
 });
 
 router.get("/500-error", (req, res) => {
-  sendResponse(res, 500, false, "Internal Server Error");
-});
+  try{
+    throw new Error("Some General error")
+  }catch(error){
+    sendResponse(res, 500, false, "Internal Server Error", null, {}, [error?.message]);
+  }
+});0
 
 
 module.exports = router;
